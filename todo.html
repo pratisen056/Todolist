@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beautiful Todo List</title>
+    <link rel="stylesheet" href="todo.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+
+</head>
+<body>
+    <div class="container">
+        <h1>✨ My Todo List ✨</h1>
+        
+        <div class="date-display">
+            <div class="current-date" id="currentDate"></div>
+            <div class="date-picker">
+                <button class="date-nav-btn" id="prevDay">‹</button>
+                <input type="date" class="date-input" id="dateInput">
+                <button class="date-nav-btn" id="nextDay">›</button>
+                <button class="today-btn" id="todayBtn">Today</button>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input type="text" id="todoInput" placeholder="Add a new task..." maxlength="100">
+            <button id="addBtn">Add Task</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="totalTasks">0</div>
+                <div>Total Tasks</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="completedTasks">0</div>
+                <div>Completed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="remainingTasks">0</div>
+                <div>Remaining</div>
+            </div>
+        </div>
+
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <div id="todoList">
+            <div class="empty-state">
+                <div>No tasks yet. Add one above!</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let todos = [];
+        let currentFilter = 'all';
+        let currentDate = new Date();
+
+        const todoInput = document.getElementById('todoInput');
+        const addBtn = document.getElementById('addBtn');
+        const todoList = document.getElementById('todoList');
+        const totalTasks = document.getElementById('totalTasks');
+        const completedTasks = document.getElementById('completedTasks');
+        const remainingTasks = document.getElementById('remainingTasks');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const currentDateDisplay = document.getElementById('currentDate');
+        const dateInput = document.getElementById('dateInput');
+        const prevDayBtn = document.getElementById('prevDay');
+        const nextDayBtn = document.getElementById('nextDay');
+        const todayBtn = document.getElementById('todayBtn');
+
+        // Add event listeners
+        addBtn.addEventListener('click', addTodo);
+        todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTodo();
+        });
+
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentFilter = btn.dataset.filter;
+                filterButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderTodos();
+            });
+        });
+
+        // Date navigation event listeners
+        prevDayBtn.addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() - 1);
+            updateDateDisplay();
+            renderTodos();
+        });
+
+        nextDayBtn.addEventListener('click', () => {
+            currentDate.setDate(currentDate.getDate() + 1);
+            updateDateDisplay();
+            renderTodos();
+        });
+
+        todayBtn.addEventListener('click', () => {
+            currentDate = new Date();
+            updateDateDisplay();
+            renderTodos();
+        });
+
+        dateInput.addEventListener('change', (e) => {
+            currentDate = new Date(e.target.value);
+            updateDateDisplay();
+            renderTodos();
+        });
+
+        function updateDateDisplay() {
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            currentDateDisplay.textContent = currentDate.toLocaleDateString('en-US', options);
+            dateInput.value = currentDate.toISOString().split('T')[0];
+        }
+
+        function getDateString(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function addTodo() {
+            const text = todoInput.value.trim();
+            if (text === '') return;
+
+            const todo = {
+                id: Date.now(),
+                text: text,
+                completed: false,
+                date: getDateString(currentDate)
+            };
+
+            todos.push(todo);
+            todoInput.value = '';
+            renderTodos();
+            updateStats();
+        }
+
+        function toggleTodo(id) {
+            todos = todos.map(todo => 
+                todo.id === id ? { ...todo, completed: !todo.completed } : todo
+            );
+            renderTodos();
+            updateStats();
+        }
+
+        function deleteTodo(id) {
+            todos = todos.filter(todo => todo.id !== id);
+            renderTodos();
+            updateStats();
+        }
+
+        function renderTodos() {
+            const currentDateStr = getDateString(currentDate);
+            let filteredTodos = todos;
+            
+            if (currentFilter === 'active') {
+                filteredTodos = todos.filter(todo => !todo.completed);
+            } else if (currentFilter === 'completed') {
+                filteredTodos = todos.filter(todo => todo.completed);
+            }
+
+            // Show today's tasks first, then others
+            const todayTodos = filteredTodos.filter(todo => todo.date === currentDateStr);
+            const otherTodos = filteredTodos.filter(todo => todo.date !== currentDateStr);
+
+            if (filteredTodos.length === 0) {
+                todoList.innerHTML = `
+                    <div class="empty-state">
+                        <div>${currentFilter === 'all' ? 'No tasks yet. Add one above!' : 
+                               currentFilter === 'active' ? 'No active tasks!' : 
+                               'No completed tasks yet!'}</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const renderTodoItem = (todo, isFromOtherDate = false) => {
+                const todoDate = new Date(todo.date);
+                const dateLabel = todoDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                return `
+                    <div class="todo-item ${todo.completed ? 'completed' : ''} ${isFromOtherDate ? 'from-other-date' : ''}">
+                        <div class="todo-checkbox ${todo.completed ? 'checked' : ''}" 
+                             onclick="toggleTodo(${todo.id})"></div>
+                        <span class="todo-text">${todo.text}</span>
+                        ${isFromOtherDate ? `<span class="todo-date">${dateLabel}</span>` : ''}
+                        <button class="delete-btn" onclick="deleteTodo(${todo.id})">🗑️</button>
+                    </div>
+                `;
+            };
+
+            let html = '';
+            
+            // Add today's todos
+            if (todayTodos.length > 0) {
+                html += todayTodos.map(todo => renderTodoItem(todo, false)).join('');
+            }
+            
+            // Add other date todos with date labels
+            if (otherTodos.length > 0) {
+                html += otherTodos.map(todo => renderTodoItem(todo, true)).join('');
+            }
+
+            todoList.innerHTML = html;
+        }
+
+        function updateStats() {
+            const total = todos.length;
+            const completed = todos.filter(todo => todo.completed).length;
+            const remaining = total - completed;
+
+            totalTasks.textContent = total;
+            completedTasks.textContent = completed;
+            remainingTasks.textContent = remaining;
+        }
+
+        // Initialize
+        updateDateDisplay();
+        renderTodos();
+        updateStats();
+    </script>
+</body>
+</html>
